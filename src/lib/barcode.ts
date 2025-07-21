@@ -1,10 +1,5 @@
 import { BrowserBarcodeReader, NotFoundException, ChecksumException, FormatException } from '@zxing/library'
-
-export interface BarcodeResult {
-  isbn: string
-  success: boolean
-  error?: string
-}
+import { BarcodeResult } from '@/types'
 
 export async function readBarcodeFromImage(imageFile: File): Promise<BarcodeResult> {
   try {

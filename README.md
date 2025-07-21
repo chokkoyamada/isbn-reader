@@ -103,6 +103,48 @@ src/
 - 🔄 共有機能のテスト
 - 🖼 画像アップロード機能のテスト
 
+## 🤖 GitHub Actions (Claude Code Actions)
+
+このリポジトリには包括的なCI/CDパイプラインが設定されています：
+
+### 🔧 自動化されたワークフロー
+
+- **📝 コードチェック**: ESLint、TypeScriptチェック、テスト実行
+- **🏗 ビルド**: 本番環境向け最適化ビルド
+- **🚀 デプロイ**: Vercel自動デプロイ（本番・プレビュー）
+- **🔒 セキュリティ**: 脆弱性スキャン・監査
+- **⚡ パフォーマンス**: Lighthouse CI品質測定
+- **📈 品質**: SonarCloud・CodeClimate統合
+
+### 🔑 必要なSecrets設定
+
+GitHub Settings > Secrets and variables > Actions で以下を設定：
+
+```bash
+# Vercel デプロイ用
+VERCEL_TOKEN=your_vercel_token
+VERCEL_ORG_ID=your_org_id
+VERCEL_PROJECT_ID=your_project_id
+
+# コードカバレッジ用
+CODECOV_TOKEN=your_codecov_token
+CC_TEST_REPORTER_ID=your_codeclimate_id
+
+# 品質チェック用
+SONAR_TOKEN=your_sonarcloud_token
+
+# Lighthouse CI用 (オプショナル)
+LHCI_GITHUB_APP_TOKEN=your_lighthouse_token
+```
+
+### 📊 品質ゲート
+
+- **テストカバレッジ**: 全36テストケース通過必須
+- **Lighthouse スコア**: Performance ≥ 80%, Accessibility ≥ 90%
+- **ESLint**: エラーゼロ必須
+- **TypeScript**: 型エラーゼロ必須
+- **セキュリティ**: 高脆弱性ゼロ必須
+
 ## 📄 ライセンス
 
 MIT License

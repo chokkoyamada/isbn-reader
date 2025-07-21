@@ -125,8 +125,8 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
             </>
           )}
           {url && (
-            <>
-              <div>
+            <div className="overflow-y-auto max-h-[70vh] flex flex-col items-center">
+              <div className="w-full flex justify-center mb-2">
                 <button
                   onClick={() => {
                     setUrl(null);
@@ -138,14 +138,20 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                   削除
                 </button>
               </div>
-              <div>
+              <div className="w-full flex justify-center">
                 <img
                   src={url}
                   alt="Screenshot"
-                  className="w-full rounded-lg border"
+                  className="rounded-lg border"
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "40vh",
+                    objectFit: "contain",
+                    aspectRatio: "4/3",
+                  }}
                 />
               </div>
-              <div className="mt-2">
+              <div className="mt-2 w-full">
                 {ocrLoading && (
                   <div className="text-gray-500">OCR処理中...</div>
                 )}
@@ -156,10 +162,11 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                     rows={4}
                     value={ocrText}
                     readOnly
+                    style={{ minHeight: "5em", maxHeight: "20vh" }}
                   />
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>

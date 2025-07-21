@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { BookInfo } from '@/types'
-import { generateShareText, copyToClipboard, shareToX, shareToSlack, shareWithWebAPI } from '@/lib/share'
+import { generateShareText, copyToClipboard, shareWithWebAPI } from '@/lib/share'
 import { useState } from 'react'
 
 interface BookDisplayProps {
@@ -23,21 +23,12 @@ export function BookDisplay({ bookInfo }: BookDisplayProps) {
     }
   }
 
-  const handleShareX = () => {
-    const shareText = generateShareText(bookInfo)
-    shareToX(shareText)
-  }
-
-  const handleShareSlack = () => {
-    const shareText = generateShareText(bookInfo)
-    shareToSlack(shareText)
-  }
 
   const handleWebShare = async () => {
     try {
       const shareText = generateShareText(bookInfo)
       await shareWithWebAPI({
-        title: 'このページをSlackで共有',
+        title: '共有する',
         text: shareText,
         url: window.location.href,
       })
@@ -119,25 +110,12 @@ export function BookDisplay({ bookInfo }: BookDisplayProps) {
             {copySuccess ? '✅ コピー完了' : '📋 コピー'}
           </button>
           
-          <button
-            onClick={handleShareX}
-            className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded transition-colors"
-          >
-            𝕏 X に投稿
-          </button>
-          
-          <button
-            onClick={handleShareSlack}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
-          >
-            💬 Slack で共有
-          </button>
           
           <button
             onClick={handleWebShare}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
           >
-            📱 Slackに共有
+            共有する
           </button>
         </div>
       </div>

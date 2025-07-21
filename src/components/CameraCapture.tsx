@@ -33,6 +33,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
       
       if (!result.success || !result.stream) {
         setError(result.error || 'カメラの起動に失敗しました')
+        setIsCapturing(false)
         return
       }
 
@@ -40,10 +41,36 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
       
       if (videoRef.current) {
         videoRef.current.srcObject = result.stream
+        
+        // ビデオメタデータ読み込み完了を待つ
+        await new Promise<void>((resolve, reject) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = () => {
+              console.log('Video metadata loaded')
+              resolve()
+            }
+            videoRef.current.onerror = (err) => {
+              console.error('Video error:', err)
+              reject(err)
+            }
+            // フォールバック：3秒でタイムアウト
+            setTimeout(resolve, 3000)
+          } else {
+            reject(new Error('Video element not found'))
+          }
+        })
+        
         setIsActive(true)
+        console.log('Camera started successfully')
       }
     } catch (err) {
+      console.error('Camera start error:', err)
       setError('カメラの起動中にエラーが発生しました')
+      // ストリームを停止
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+        streamRef.current = null
+      }
     } finally {
       setIsCapturing(false)
     }
@@ -58,21 +85,37 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
   }
 
   const capturePhoto = async () => {
-    if (!videoRef.current) return
+    if (!videoRef.current) {
+      console.error('Video element not found')
+      setError('カメラが準備できていません')
+      return
+    }
+
+    if (!streamRef.current) {
+      console.error('Stream not found')
+      setError('カメラストリームが見つかりません')
+      return
+    }
 
     setIsCapturing(true)
     setError('')
 
     try {
+      console.log('Starting photo capture...')
+      console.log('Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight)
+      
       const result = await captureImageFromVideo(videoRef.current)
       
       if (result.success && result.file) {
+        console.log('Photo captured successfully:', result.file.name, result.file.size, 'bytes')
         stopCamera()
         onCapture(result.file)
       } else {
+        console.error('Capture failed:', result.error)
         setError(result.error || '撮影に失敗しました')
       }
     } catch (err) {
+      console.error('Capture error:', err)
       setError('撮影中にエラーが発生しました')
     } finally {
       setIsCapturing(false)
@@ -128,24 +171,33 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                   playsInline
                   muted
                   className="w-full h-64 object-cover"
+                  style={{ minHeight: '256px' }}
                 />
+                {/* プレビュー確認用のオーバーレイ */}
+                <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                  プレビュー中
+                </div>
+              </div>
+              
+              <div className="text-center text-sm text-gray-600 mb-2">
+                ISBNが写るように本を画面に映してください
               </div>
               
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={capturePhoto}
                   disabled={isCapturing}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white rounded-lg"
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white rounded-lg font-medium shadow-lg"
                 >
-                  {isCapturing ? '撮影中...' : '📸 撮影'}
+                  {isCapturing ? '撮影中...' : '📸 撮影する'}
                 </button>
                 
                 <button
                   onClick={retakePhoto}
                   disabled={isCapturing}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-300 text-white rounded-lg"
+                  className="px-4 py-3 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-300 text-white rounded-lg"
                 >
-                  🔄 再撮影
+                  🔄 再起動
                 </button>
               </div>
             </div>

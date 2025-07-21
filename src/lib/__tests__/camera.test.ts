@@ -45,8 +45,8 @@ describe('カメラ機能', () => {
       expect(mockGetUserMedia).toHaveBeenCalledWith({
         video: { 
           facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          width: { ideal: 1920, min: 640 },
+          height: { ideal: 1080, min: 480 }
         }
       })
     })
@@ -78,6 +78,7 @@ describe('カメラ機能', () => {
       const mockVideo = {
         videoWidth: 1920,
         videoHeight: 1080,
+        readyState: 2
       } as HTMLVideoElement
 
       const mockContext = {
@@ -107,6 +108,7 @@ describe('カメラ機能', () => {
       const mockVideo = {
         videoWidth: 1920,
         videoHeight: 1080,
+        readyState: 2
       } as HTMLVideoElement
 
       mockGetContext.mockReturnValue(null)
@@ -115,13 +117,14 @@ describe('カメラ機能', () => {
 
       expect(result.success).toBe(false)
       expect(result.file).toBeUndefined()
-      expect(result.error).toBe('画像のキャプチャに失敗しました')
+      expect(result.error).toBe('キャンバスコンテキストの取得に失敗しました')
     })
 
     test('Blob変換に失敗した場合エラーを返す', async () => {
       const mockVideo = {
         videoWidth: 1920,
         videoHeight: 1080,
+        readyState: 2
       } as HTMLVideoElement
 
       const mockContext = {

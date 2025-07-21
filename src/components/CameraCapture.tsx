@@ -1,9 +1,9 @@
 import { useRef, useState, useCallback } from "react";
 import Webcam from "react-webcam";
-import { performOCR } from "@/lib/ocr";
+import { performOCR, extractISBNFromText } from "@/lib/ocr";
 
-const VIDEO_WIDTH = 720;
-const VIDEO_HEIGHT = 360;
+const VIDEO_WIDTH = 1280;
+const VIDEO_HEIGHT = 720;
 
 interface CameraCaptureProps {
   onCapture?: (file: File) => void;
@@ -46,49 +46,82 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
       setOcrText("");
       setOcrError("");
       setOcrLoading(true);
+      
       try {
         const file = dataURLtoFile(imageSrc, "capture.jpg");
+        
+        // OCR処理
         const ocrResult = await performOCR(file);
         setOcrText(ocrResult.text);
-        if (onCapture) onCapture(file); // 必要なら親にFileを返す
+        
+        // ISBN抽出を試行
+        const isbnResult = extractISBNFromText(ocrResult.text);
+        if (isbnResult.isValid && isbnResult.isbn) {
+          // ISBNが見つかった場合、自動的に親コンポーネントに通知
+          if (onCapture) {
+            onCapture(file);
+            // ISBNが見つかったのでモーダルを閉じる
+            if (onClose) onClose();
+          }
+        } else {
+          // ISBNが見つからない場合はテキストを表示してユーザーに確認させる
+          setOcrError("ISBNが見つかりませんでした。画像をもう一度撮影してください。");
+        }
       } catch (err) {
-        setOcrError("OCR処理に失敗しました");
+        setOcrError("OCR処理に失敗しました。もう一度お試しください。");
       } finally {
         setOcrLoading(false);
       }
     }
-  }, [webcamRef, onCapture]);
+  }, [webcamRef, onCapture, onClose]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold">📷 カメラで撮影</h3>
+      <div className="bg-white rounded-lg p-4 w-full max-w-lg mx-4 max-h-[95vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">📷 ISBN撮影</h3>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
-            aria-label="✕"
+            className="text-gray-500 hover:text-gray-700 text-2xl w-8 h-8 flex items-center justify-center"
+            aria-label="閉じる"
           >
             ✕
           </button>
         </div>
         <div className="space-y-4">
           {!isCaptureEnable && (
-            <button
-              onClick={() => setCaptureEnable(true)}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
-            >
-              開始
-            </button>
+            <div className="text-center">
+              <div className="mb-6">
+                <div className="w-20 h-20 mx-auto bg-blue-100 rounded-full flex items-center justify-center text-3xl mb-4">
+                  📱
+                </div>
+                <h4 className="text-lg font-semibold mb-2">本のISBNを撮影</h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  本の裏表紙にあるISBNバーコードを<br />
+                  カメラで撮影してください
+                </p>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-yellow-800">
+                    💡 ISBNがはっきり見えるように撮影してください
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCaptureEnable(true)}
+                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-lg transition-colors"
+              >
+                📷 カメラを起動
+              </button>
+            </div>
           )}
           {isCaptureEnable && (
             <>
-              <div className="flex gap-2 mb-2">
+              <div className="flex gap-2 mb-3">
                 <button
                   onClick={() => setCaptureEnable(false)}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg"
+                  className="flex-1 px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
                 >
-                  終了
+                  📴 停止
                 </button>
                 <button
                   onClick={() =>
@@ -96,75 +129,113 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                       facingMode === "user" ? "environment" : "user"
                     )
                   }
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
+                  className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm transition-colors"
                 >
-                  {facingMode === "user"
-                    ? "背面カメラに切替"
-                    : "前面カメラに切替"}
+                  {facingMode === "user" ? "📷 背面" : "🤳 前面"}
                 </button>
               </div>
               <div className="w-full flex flex-col items-center">
-                <div className="w-full max-w-full aspect-[4/3] bg-black rounded-lg border overflow-hidden">
+                <div className="relative w-full max-w-full aspect-[4/3] bg-black rounded-lg border overflow-hidden mb-3">
                   <Webcam
                     audio={false}
                     ref={webcamRef}
                     screenshotFormat="image/jpeg"
                     videoConstraints={videoConstraints}
-                    className="w-full h-full object-contain"
-                    style={{ aspectRatio: "4/3", maxWidth: "100%" }}
+                    className="w-full h-full object-cover"
                   />
+                  {/* フォーカスガイド */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="border-2 border-white border-dashed rounded-lg w-3/4 h-1/2 opacity-50"></div>
+                  </div>
+                  {/* カメラ情報 */}
+                  <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                    {facingMode === "user" ? "前面カメラ" : "背面カメラ"}
+                  </div>
+                </div>
+                <div className="text-center mb-3">
+                  <p className="text-sm text-gray-600">
+                    ISBNコードを枠内に合わせて撮影してください
+                  </p>
                 </div>
                 <button
                   onClick={capture}
-                  className="w-full mt-3 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-lg"
-                  style={{ maxWidth: 400 }}
+                  disabled={ocrLoading}
+                  className="w-full px-6 py-4 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white rounded-lg font-medium shadow-lg transition-colors flex items-center justify-center space-x-2"
                 >
-                  キャプチャ
+                  {ocrLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>処理中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📸</span>
+                      <span>撮影する</span>
+                    </>
+                  )}
                 </button>
               </div>
             </>
           )}
           {url && (
-            <div className="overflow-y-auto max-h-[70vh] flex flex-col items-center">
-              <div className="w-full flex justify-center mb-2">
+            <div className="space-y-4">
+              <div className="text-center">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">撮影結果</h4>
+                <div className="relative inline-block">
+                  <img
+                    src={url}
+                    alt="撮影された画像"
+                    className="rounded-lg border max-w-full max-h-48 object-contain"
+                  />
+                </div>
+              </div>
+              
+              {ocrLoading && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-blue-700 text-sm">ISBN を読み取り中...</p>
+                </div>
+              )}
+              
+              {ocrError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-2">
+                    <span className="text-red-500 flex-shrink-0">⚠️</span>
+                    <div>
+                      <p className="text-red-700 text-sm font-medium">読み取りに失敗しました</p>
+                      <p className="text-red-600 text-xs mt-1">{ocrError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {ocrText && !ocrLoading && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <h5 className="text-xs font-medium text-gray-700 mb-2">読み取ったテキスト:</h5>
+                  <div className="text-xs text-gray-600 bg-white rounded border p-2 max-h-32 overflow-y-auto">
+                    {ocrText}
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
                 <button
                   onClick={() => {
                     setUrl(null);
                     setOcrText("");
                     setOcrError("");
                   }}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                  className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
                 >
-                  削除
+                  🗑️ 削除
                 </button>
-              </div>
-              <div className="w-full flex justify-center">
-                <img
-                  src={url}
-                  alt="Screenshot"
-                  className="rounded-lg border"
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: "40vh",
-                    objectFit: "contain",
-                    aspectRatio: "4/3",
-                  }}
-                />
-              </div>
-              <div className="mt-2 w-full">
-                {ocrLoading && (
-                  <div className="text-gray-500">OCR処理中...</div>
-                )}
-                {ocrError && <div className="text-red-600">{ocrError}</div>}
-                {ocrText && (
-                  <textarea
-                    className="w-full border rounded p-2 text-sm mt-2"
-                    rows={4}
-                    value={ocrText}
-                    readOnly
-                    style={{ minHeight: "5em", maxHeight: "20vh" }}
-                  />
-                )}
+                <button
+                  onClick={capture}
+                  disabled={ocrLoading}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg text-sm transition-colors"
+                >
+                  📸 再撮影
+                </button>
               </div>
             </div>
           )}

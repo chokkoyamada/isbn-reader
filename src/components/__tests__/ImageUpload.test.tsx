@@ -11,8 +11,9 @@ describe('ImageUploadコンポーネント', () => {
   test('ファイル選択エリアが正しく表示される', () => {
     render(<ImageUpload onImageSelect={mockOnImageSelect} />)
     
-    expect(screen.getByText('画像をドラッグ&ドロップまたはクリックして選択')).toBeInTheDocument()
-    expect(screen.getByText('JPG, PNG形式をサポート')).toBeInTheDocument()
+    expect(screen.getByText('画像をアップロード')).toBeInTheDocument()
+    expect(screen.getByText('クリックして選択またはドラッグ&ドロップ')).toBeInTheDocument()
+    expect(screen.getByText('JPG, PNG, HEIC, WebP対応')).toBeInTheDocument()
   })
 
   test('ファイル入力でイベントが正しく発火される', async () => {
@@ -41,7 +42,7 @@ describe('ImageUploadコンポーネント', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('JPG、PNG形式のファイルを選択してください')).toBeInTheDocument()
+      expect(screen.getByText('JPG、PNG、HEIC、WebP形式のファイルを選択してください')).toBeInTheDocument()
     })
     
     expect(mockOnImageSelect).not.toHaveBeenCalled()

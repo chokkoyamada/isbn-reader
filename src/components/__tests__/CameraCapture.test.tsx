@@ -1,16 +1,27 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import React from 'react'
 import { CameraCapture } from '../CameraCapture'
 
-// カメラ関数をモック化
-jest.mock('@/lib/camera', () => ({
-  requestCameraPermission: jest.fn(),
-  captureImageFromVideo: jest.fn(),
+// react-webcamをモック化
+jest.mock('react-webcam', () => {
+  return {
+    __esModule: true,
+    default: React.forwardRef((props: any, ref: any) => {
+      if (ref) {
+        ref.current = {
+          getScreenshot: jest.fn()
+        }
+      }
+      return <div data-testid="webcam">Mocked Webcam</div>
+    })
+  }
+})
+
+// OCRをモック化
+jest.mock('@/lib/ocr', () => ({
+  performOCR: jest.fn().mockResolvedValue({ text: '' }),
+  extractISBNFromText: jest.fn().mockReturnValue({ isValid: false }),
 }))
-
-import { requestCameraPermission, captureImageFromVideo } from '@/lib/camera'
-
-const mockRequestCameraPermission = requestCameraPermission as jest.MockedFunction<typeof requestCameraPermission>
-const mockCaptureImageFromVideo = captureImageFromVideo as jest.MockedFunction<typeof captureImageFromVideo>
 
 describe('CameraCaptureコンポーネント', () => {
   const mockOnCapture = jest.fn()
@@ -23,82 +34,67 @@ describe('CameraCaptureコンポーネント', () => {
   test('初期状態で適切な要素が表示される', () => {
     render(<CameraCapture onCapture={mockOnCapture} onClose={mockOnClose} />)
     
-    expect(screen.getByText('📷 カメラで撮影')).toBeInTheDocument()
+    expect(screen.getByText('📷 ISBN撮影')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '📷 カメラを起動' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '✕' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '閉じる' })).toBeInTheDocument()
   })
 
-  test('カメラ起動ボタンをクリックするとカメラが起動する', async () => {
-    const mockStream = { getTracks: jest.fn(() => [{ stop: jest.fn() }]) }
-    mockRequestCameraPermission.mockResolvedValue({
-      success: true,
-      stream: mockStream as any
-    })
-
+  test('カメラ起動ボタンをクリックするとカメラが起動する', () => {
     render(<CameraCapture onCapture={mockOnCapture} onClose={mockOnClose} />)
     
     const startButton = screen.getByRole('button', { name: '📷 カメラを起動' })
     fireEvent.click(startButton)
 
-    await waitFor(() => {
-      expect(mockRequestCameraPermission).toHaveBeenCalled()
-    })
-
-    // State change confirmation without UI elements that might not render in test
-    expect(mockRequestCameraPermission).toHaveBeenCalledWith()
+    expect(screen.getByTestId('webcam')).toBeInTheDocument()
+    expect(screen.getByText('📷 背面')).toBeInTheDocument()
   })
 
-  test('カメラ起動に失敗した場合エラーメッセージを表示する', async () => {
-    mockRequestCameraPermission.mockResolvedValue({
-      success: false,
-      error: 'カメラへのアクセスが許可されませんでした'
-    })
-
+  test('前面・背面カメラ切り替えボタンが動作する', () => {
     render(<CameraCapture onCapture={mockOnCapture} onClose={mockOnClose} />)
     
+    // カメラを起動
     const startButton = screen.getByRole('button', { name: '📷 カメラを起動' })
     fireEvent.click(startButton)
 
-    await waitFor(() => {
-      expect(screen.getByText('カメラへのアクセスが許可されませんでした')).toBeInTheDocument()
-    })
-  })
-
-  test('撮影機能が正しく動作する', async () => {
-    const mockFile = new File([''], 'test.jpg', { type: 'image/jpeg' })
+    // 切り替えボタンをクリック
+    const switchButton = screen.getByText('📷 背面')
+    fireEvent.click(switchButton)
     
-    mockCaptureImageFromVideo.mockResolvedValue({
-      success: true,
-      file: mockFile
-    })
-
-    // 撮影機能のテストはカメラライブラリ関数レベルで検証
-    expect(mockCaptureImageFromVideo).toBeDefined()
-  })
-
-  test('撮影エラー処理が動作する', () => {
-    mockCaptureImageFromVideo.mockResolvedValue({
-      success: false,
-      error: '画像のキャプチャに失敗しました'
-    })
-
-    // エラー処理のテストはライブラリ関数レベルで検証
-    expect(mockCaptureImageFromVideo).toBeDefined()
+    expect(screen.getByText('🤳 前面')).toBeInTheDocument()
   })
 
   test('閉じるボタンをクリックするとonCloseが呼ばれる', () => {
     render(<CameraCapture onCapture={mockOnCapture} onClose={mockOnClose} />)
     
-    const closeButton = screen.getByRole('button', { name: '✕' })
+    const closeButton = screen.getByRole('button', { name: '閉じる' })
     fireEvent.click(closeButton)
 
     expect(mockOnClose).toHaveBeenCalled()
   })
 
-  test('再撮影機能が定義されている', () => {
+  test('撮影ボタンが表示される', () => {
     render(<CameraCapture onCapture={mockOnCapture} onClose={mockOnClose} />)
     
-    // 再撮影機能の基本的な動作確認
-    expect(mockRequestCameraPermission).toBeDefined()
+    // カメラを起動
+    const startButton = screen.getByRole('button', { name: '📷 カメラを起動' })
+    fireEvent.click(startButton)
+
+    // 撮影ボタンが表示されることを確認
+    expect(screen.getByRole('button', { name: /撮影する/ })).toBeInTheDocument()
+  })
+
+  test('停止ボタンが動作する', () => {
+    render(<CameraCapture onCapture={mockOnCapture} onClose={mockOnClose} />)
+    
+    // カメラを起動
+    const startButton = screen.getByRole('button', { name: '📷 カメラを起動' })
+    fireEvent.click(startButton)
+
+    // 停止ボタンをクリック
+    const stopButton = screen.getByText('📴 停止')
+    fireEvent.click(stopButton)
+    
+    // 起動ボタンが再び表示される
+    expect(screen.getByRole('button', { name: '📷 カメラを起動' })).toBeInTheDocument()
   })
 })

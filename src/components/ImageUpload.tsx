@@ -16,8 +16,9 @@ export function ImageUpload({ onImageSelect }: ImageUploadProps) {
 
     const file = files[0]
     
-    if (!file.type.startsWith('image/') || (!file.type.includes('jpeg') && !file.type.includes('png'))) {
-      setError('JPG、PNG形式のファイルを選択してください')
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/webp'];
+    if (!file.type.startsWith('image/') || !allowedTypes.includes(file.type)) {
+      setError('JPG、PNG、HEIC、WebP形式のファイルを選択してください')
       return
     }
 
@@ -52,36 +53,44 @@ export function ImageUpload({ onImageSelect }: ImageUploadProps) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`w-full p-8 border-2 border-dashed rounded-lg transition-colors ${
+        className={`w-full p-8 bg-white border-2 border-dashed rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 ${
           isDragOver
-            ? 'border-blue-400 bg-blue-50'
-            : 'border-gray-300 hover:border-gray-400'
+            ? 'border-blue-400 bg-blue-50 scale-105'
+            : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
         }`}
       >
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png"
+          accept="image/jpeg,image/png,image/jpg,image/heic,image/webp"
           onChange={(e) => handleFileSelect(e.target.files)}
           className="hidden"
         />
         <div className="text-center">
           <div className="mb-4">
-            📷
+            <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl">
+              📁
+            </div>
           </div>
-          <p className="text-lg font-medium text-gray-700 mb-2">
-            画像をドラッグ&ドロップまたはクリックして選択
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">
+            画像をアップロード
+          </h3>
+          <p className="text-sm text-gray-500 mb-1">
+            クリックして選択またはドラッグ&ドロップ
           </p>
-          <p className="text-sm text-gray-500">
-            JPG, PNG形式をサポート
-          </p>
+          <div className="text-xs text-gray-400">
+            JPG, PNG, HEIC, WebP対応
+          </div>
         </div>
       </button>
       
       {error && (
-        <p className="mt-2 text-sm text-red-600 text-center">
-          {error}
-        </p>
+        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-700 text-center flex items-center justify-center space-x-2">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </p>
+        </div>
       )}
     </div>
   )

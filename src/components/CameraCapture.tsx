@@ -1,136 +1,60 @@
-'use client'
+import { useRef, useState, useCallback } from "react";
+import Webcam from "react-webcam";
+import { performOCR } from "@/lib/ocr";
 
-import { useState, useRef, useEffect } from 'react'
-import { requestCameraPermission, captureImageFromVideo } from '@/lib/camera'
+const videoConstraints = {
+  width: 720,
+  height: 360,
+  facingMode: "user",
+};
 
 interface CameraCaptureProps {
-  onCapture: (file: File) => void
-  onClose: () => void
+  onCapture?: (file: File) => void;
+  onClose?: () => void;
 }
 
 export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
-  const [isActive, setIsActive] = useState(false)
-  const [error, setError] = useState<string>('')
-  const [isCapturing, setIsCapturing] = useState(false)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
+  const [isCaptureEnable, setCaptureEnable] = useState<boolean>(false);
+  const webcamRef = useRef<Webcam>(null);
+  const [url, setUrl] = useState<string | null>(null);
 
-  // コンポーネントのアンマウント時にストリームを停止
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop())
-      }
+  // dataURLをFileに変換するユーティリティ
+  function dataURLtoFile(dataurl: string, filename: string): File {
+    const arr = dataurl.split(",");
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
     }
-  }, [])
-
-  const startCamera = async () => {
-    setError('')
-    setIsCapturing(true)
-
-    try {
-      const result = await requestCameraPermission()
-      
-      if (!result.success || !result.stream) {
-        setError(result.error || 'カメラの起動に失敗しました')
-        setIsCapturing(false)
-        return
-      }
-
-      streamRef.current = result.stream
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = result.stream
-        
-        // ビデオメタデータ読み込み完了を待つ
-        await new Promise<void>((resolve, reject) => {
-          if (videoRef.current) {
-            videoRef.current.onloadedmetadata = () => {
-              console.log('Video metadata loaded')
-              resolve()
-            }
-            videoRef.current.onerror = (err) => {
-              console.error('Video error:', err)
-              reject(err)
-            }
-            // フォールバック：3秒でタイムアウト
-            setTimeout(resolve, 3000)
-          } else {
-            reject(new Error('Video element not found'))
-          }
-        })
-        
-        setIsActive(true)
-        console.log('Camera started successfully')
-      }
-    } catch (err) {
-      console.error('Camera start error:', err)
-      setError('カメラの起動中にエラーが発生しました')
-      // ストリームを停止
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop())
-        streamRef.current = null
-      }
-    } finally {
-      setIsCapturing(false)
-    }
+    return new File([u8arr], filename, { type: mime });
   }
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
-      streamRef.current = null
-    }
-    setIsActive(false)
-  }
+  const [ocrText, setOcrText] = useState<string>("");
+  const [ocrLoading, setOcrLoading] = useState<boolean>(false);
+  const [ocrError, setOcrError] = useState<string>("");
 
-  const capturePhoto = async () => {
-    if (!videoRef.current) {
-      console.error('Video element not found')
-      setError('カメラが準備できていません')
-      return
-    }
-
-    if (!streamRef.current) {
-      console.error('Stream not found')
-      setError('カメラストリームが見つかりません')
-      return
-    }
-
-    setIsCapturing(true)
-    setError('')
-
-    try {
-      console.log('Starting photo capture...')
-      console.log('Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight)
-      
-      const result = await captureImageFromVideo(videoRef.current)
-      
-      if (result.success && result.file) {
-        console.log('Photo captured successfully:', result.file.name, result.file.size, 'bytes')
-        stopCamera()
-        onCapture(result.file)
-      } else {
-        console.error('Capture failed:', result.error)
-        setError(result.error || '撮影に失敗しました')
+  const capture = useCallback(async () => {
+    const imageSrc = webcamRef.current?.getScreenshot();
+    if (imageSrc) {
+      setUrl(imageSrc);
+      setOcrText("");
+      setOcrError("");
+      setOcrLoading(true);
+      try {
+        const file = dataURLtoFile(imageSrc, "capture.jpg");
+        const ocrResult = await performOCR(file);
+        setOcrText(ocrResult.text);
+        if (onCapture) onCapture(file); // 必要なら親にFileを返す
+      } catch (err) {
+        setOcrError("OCR処理に失敗しました");
+      } finally {
+        setOcrLoading(false);
       }
-    } catch (err) {
-      console.error('Capture error:', err)
-      setError('撮影中にエラーが発生しました')
-    } finally {
-      setIsCapturing(false)
     }
-  }
-
-  const retakePhoto = () => {
-    setError('')
-    startCamera()
-  }
-
-  const handleClose = () => {
-    stopCamera()
-    onClose()
-  }
+  }, [webcamRef, onCapture]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -138,78 +62,88 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">📷 カメラで撮影</h3>
           <button
-            onClick={handleClose}
+            onClick={onClose}
             className="text-gray-500 hover:text-gray-700 text-2xl"
             aria-label="✕"
           >
             ✕
           </button>
         </div>
-
         <div className="space-y-4">
-          {!isActive ? (
-            <div className="text-center">
-              <div className="mb-4">
-                <div className="w-24 h-24 mx-auto bg-gray-100 rounded-full flex items-center justify-center text-4xl">
-                  📷
-                </div>
+          {!isCaptureEnable && (
+            <button
+              onClick={() => setCaptureEnable(true)}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+            >
+              開始
+            </button>
+          )}
+          {isCaptureEnable && (
+            <>
+              <div>
+                <button
+                  onClick={() => setCaptureEnable(false)}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg"
+                >
+                  終了
+                </button>
+              </div>
+              <div>
+                <Webcam
+                  audio={false}
+                  width={540}
+                  height={360}
+                  ref={webcamRef}
+                  screenshotFormat="image/jpeg"
+                  videoConstraints={videoConstraints}
+                  className="rounded-lg border"
+                />
               </div>
               <button
-                onClick={startCamera}
-                disabled={isCapturing}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg font-medium"
+                onClick={capture}
+                className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-lg mt-2"
               >
-                {isCapturing ? '起動中...' : '📷 カメラを起動'}
+                キャプチャ
               </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="relative bg-black rounded-lg overflow-hidden">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-64 object-cover"
-                  style={{ minHeight: '256px' }}
-                />
-                {/* プレビュー確認用のオーバーレイ */}
-                <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                  プレビュー中
-                </div>
-              </div>
-              
-              <div className="text-center text-sm text-gray-600 mb-2">
-                ISBNが写るように本を画面に映してください
-              </div>
-              
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={capturePhoto}
-                  disabled={isCapturing}
-                  className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white rounded-lg font-medium shadow-lg"
-                >
-                  {isCapturing ? '撮影中...' : '📸 撮影する'}
-                </button>
-                
-                <button
-                  onClick={retakePhoto}
-                  disabled={isCapturing}
-                  className="px-4 py-3 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-300 text-white rounded-lg"
-                >
-                  🔄 再起動
-                </button>
-              </div>
-            </div>
+            </>
           )}
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-red-700 text-sm text-center">{error}</p>
-            </div>
+          {url && (
+            <>
+              <div>
+                <button
+                  onClick={() => {
+                    setUrl(null);
+                    setOcrText("");
+                    setOcrError("");
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                >
+                  削除
+                </button>
+              </div>
+              <div>
+                <img
+                  src={url}
+                  alt="Screenshot"
+                  className="w-full rounded-lg border"
+                />
+              </div>
+              <div className="mt-2">
+                {ocrLoading && <div className="text-gray-500">OCR処理中...</div>}
+                {ocrError && <div className="text-red-600">{ocrError}</div>}
+                {ocrText && (
+                  <textarea
+                    className="w-full border rounded p-2 text-sm mt-2"
+                    rows={4}
+                    value={ocrText}
+                    readOnly
+                  />
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
     </div>
-  )
+  );
 }

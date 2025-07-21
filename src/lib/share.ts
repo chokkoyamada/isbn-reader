@@ -35,3 +35,22 @@ export function shareToSlack(text: string): void {
   const url = `https://slack.com/intl/ja-jp/shared?text=${encodeURIComponent(text)}`
   window.open(url, '_blank')
 }
+
+export async function shareWithWebAPI(shareData: {
+  title?: string
+  text?: string  
+  url?: string
+}): Promise<void> {
+  if (!navigator.share) {
+    throw new Error('この機能はお使いのブラウザではサポートされていません。')
+  }
+  
+  try {
+    await navigator.share(shareData)
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return // User cancelled - not an error
+    }
+    throw error
+  }
+}

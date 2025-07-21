@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { ImageUpload } from '@/components/ImageUpload'
 import { BookDisplay } from '@/components/BookDisplay'
 import { CameraCapture } from '@/components/CameraCapture'
 import { ModeSelector } from '@/components/ModeSelector'
@@ -78,14 +77,6 @@ export default function Home() {
           />
           
           <div className="flex flex-col items-center space-y-4">
-            <ImageUpload onImageSelect={handleImageSelect} />
-            
-            <div className="flex items-center space-x-4 w-full max-w-md">
-              <div className="h-px bg-gray-300 flex-1"></div>
-              <span className="text-gray-500 text-sm px-2">または</span>
-              <div className="h-px bg-gray-300 flex-1"></div>
-            </div>
-            
             <button
               onClick={() => setShowCamera(true)}
               className="w-full max-w-md px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"

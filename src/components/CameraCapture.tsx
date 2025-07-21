@@ -2,11 +2,8 @@ import { useRef, useState, useCallback } from "react";
 import Webcam from "react-webcam";
 import { performOCR } from "@/lib/ocr";
 
-const defaultVideoConstraints = {
-  width: 720,
-  height: 360,
-  facingMode: "user" as "user" | "environment",
-};
+const VIDEO_WIDTH = 720;
+const VIDEO_HEIGHT = 360;
 
 interface CameraCaptureProps {
   onCapture?: (file: File) => void;
@@ -19,7 +16,8 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const videoConstraints = {
-    ...defaultVideoConstraints,
+    width: VIDEO_WIDTH,
+    height: VIDEO_HEIGHT,
     facingMode,
   };
 
@@ -98,29 +96,32 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                       facingMode === "user" ? "environment" : "user"
                     )
                   }
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white rounded-lg"
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
                 >
-                  カメラ切替（{facingMode === "user" ? "背面" : "前面"}）
+                  {facingMode === "user"
+                    ? "背面カメラに切替"
+                    : "前面カメラに切替"}
                 </button>
               </div>
-              <div>
-                <Webcam
-                  audio={false}
-                  width={540}
-                  height={360}
-                  ref={webcamRef}
-                  screenshotFormat="image/jpeg"
-                  videoConstraints={videoConstraints}
-                  className="rounded-lg border"
-                  key={facingMode} // 切替時に再マウント
-                />
+              <div className="w-full flex flex-col items-center">
+                <div className="w-full max-w-full aspect-[4/3] bg-black rounded-lg border overflow-hidden">
+                  <Webcam
+                    audio={false}
+                    ref={webcamRef}
+                    screenshotFormat="image/jpeg"
+                    videoConstraints={videoConstraints}
+                    className="w-full h-full object-contain"
+                    style={{ aspectRatio: "4/3", maxWidth: "100%" }}
+                  />
+                </div>
+                <button
+                  onClick={capture}
+                  className="w-full mt-3 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-lg"
+                  style={{ maxWidth: 400 }}
+                >
+                  キャプチャ
+                </button>
               </div>
-              <button
-                onClick={capture}
-                className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-lg mt-2"
-              >
-                キャプチャ
-              </button>
             </>
           )}
           {url && (

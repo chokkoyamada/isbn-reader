@@ -12,6 +12,7 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "@zxing/library": "^0.21.3",
     "axios": "^1.7.2",
     "next": "15.4.2",
     "react": "^18",

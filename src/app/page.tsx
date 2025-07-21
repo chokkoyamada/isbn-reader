@@ -4,15 +4,18 @@ import { useState } from 'react'
 import { ImageUpload } from '@/components/ImageUpload'
 import { BookDisplay } from '@/components/BookDisplay'
 import { CameraCapture } from '@/components/CameraCapture'
+import { ModeSelector } from '@/components/ModeSelector'
 import { performOCR, extractISBNFromText } from '@/lib/ocr'
+import { readBarcodeFromImage } from '@/lib/barcode'
 import { getBookInfoByISBN } from '@/lib/googleBooks'
-import { BookInfo } from '@/types'
+import { BookInfo, ReadingMode } from '@/types'
 
 export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [bookInfo, setBookInfo] = useState<BookInfo | null>(null)
   const [error, setError] = useState<string>('')
   const [showCamera, setShowCamera] = useState(false)
+  const [readingMode, setReadingMode] = useState<ReadingMode>('barcode')
 
   const handleImageSelect = async (file: File) => {
     setIsProcessing(true)
@@ -20,18 +23,33 @@ export default function Home() {
     setBookInfo(null)
 
     try {
-      // OCR処理
-      const ocrResult = await performOCR(file)
-      
-      // ISBN抽出
-      const isbnResult = extractISBNFromText(ocrResult.text)
-      
-      if (!isbnResult.isValid || !isbnResult.isbn) {
-        throw new Error(isbnResult.error || 'ISBNの抽出に失敗しました')
+      let isbn: string
+
+      if (readingMode === 'barcode') {
+        // バーコード読み取り処理
+        const barcodeResult = await readBarcodeFromImage(file)
+        
+        if (!barcodeResult.success || !barcodeResult.isbn) {
+          throw new Error(barcodeResult.error || 'バーコードの読み取りに失敗しました')
+        }
+        
+        isbn = barcodeResult.isbn
+      } else {
+        // OCR処理
+        const ocrResult = await performOCR(file)
+        
+        // ISBN抽出
+        const isbnResult = extractISBNFromText(ocrResult.text)
+        
+        if (!isbnResult.isValid || !isbnResult.isbn) {
+          throw new Error(isbnResult.error || 'ISBNの抽出に失敗しました')
+        }
+        
+        isbn = isbnResult.isbn
       }
 
       // 本の情報を取得
-      const bookData = await getBookInfoByISBN(isbnResult.isbn)
+      const bookData = await getBookInfoByISBN(isbn)
       setBookInfo(bookData)
       
     } catch (err) {
@@ -54,6 +72,11 @@ export default function Home() {
         </div>
 
         <div className="max-w-4xl mx-auto space-y-8">
+          <ModeSelector 
+            selectedMode={readingMode} 
+            onModeChange={setReadingMode} 
+          />
+          
           <div className="flex flex-col items-center space-y-4">
             <ImageUpload onImageSelect={handleImageSelect} />
             
@@ -80,7 +103,10 @@ export default function Home() {
                   画像を解析中...
                 </p>
                 <p className="text-sm text-gray-500">
-                  ISBNを読み取って本の情報を検索しています
+                  {readingMode === 'barcode' 
+                    ? 'バーコードを読み取って本の情報を検索しています'
+                    : 'OCRでISBNを読み取って本の情報を検索しています'
+                  }
                 </p>
               </div>
             </div>
@@ -98,7 +124,10 @@ export default function Home() {
                   </h3>
                   <p className="text-red-700 text-sm">{error}</p>
                   <div className="mt-4 text-xs text-red-600">
-                    💡 ヒント: ISBNがはっきり見えるように撮影し直してください
+                    💡 ヒント: {readingMode === 'barcode' 
+                      ? 'ISBNバーコードがはっきり見えるように撮影し直してください'
+                      : 'ISBNテキストがはっきり見えるように撮影し直してください'
+                    }
                   </div>
                 </div>
               </div>

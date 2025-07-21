@@ -31,3 +31,11 @@ export interface CaptureResult {
   file?: File
   error?: string
 }
+
+export type ReadingMode = 'ocr' | 'barcode'
+
+export interface BarcodeResult {
+  isbn: string
+  success: boolean
+  error?: string
+}

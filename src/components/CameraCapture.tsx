@@ -2,10 +2,10 @@ import { useRef, useState, useCallback } from "react";
 import Webcam from "react-webcam";
 import { performOCR } from "@/lib/ocr";
 
-const videoConstraints = {
+const defaultVideoConstraints = {
   width: 720,
   height: 360,
-  facingMode: "user",
+  facingMode: "user" as "user" | "environment",
 };
 
 interface CameraCaptureProps {
@@ -17,6 +17,11 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
   const [isCaptureEnable, setCaptureEnable] = useState<boolean>(false);
   const webcamRef = useRef<Webcam>(null);
   const [url, setUrl] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const videoConstraints = {
+    ...defaultVideoConstraints,
+    facingMode,
+  };
 
   // dataURLをFileに変換するユーティリティ
   function dataURLtoFile(dataurl: string, filename: string): File {
@@ -80,12 +85,22 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
           )}
           {isCaptureEnable && (
             <>
-              <div>
+              <div className="flex gap-2 mb-2">
                 <button
                   onClick={() => setCaptureEnable(false)}
                   className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg"
                 >
                   終了
+                </button>
+                <button
+                  onClick={() =>
+                    setFacingMode(
+                      facingMode === "user" ? "environment" : "user"
+                    )
+                  }
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white rounded-lg"
+                >
+                  カメラ切替（{facingMode === "user" ? "背面" : "前面"}）
                 </button>
               </div>
               <div>
@@ -97,6 +112,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                   screenshotFormat="image/jpeg"
                   videoConstraints={videoConstraints}
                   className="rounded-lg border"
+                  key={facingMode} // 切替時に再マウント
                 />
               </div>
               <button
@@ -129,7 +145,9 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                 />
               </div>
               <div className="mt-2">
-                {ocrLoading && <div className="text-gray-500">OCR処理中...</div>}
+                {ocrLoading && (
+                  <div className="text-gray-500">OCR処理中...</div>
+                )}
                 {ocrError && <div className="text-red-600">{ocrError}</div>}
                 {ocrText && (
                   <textarea
